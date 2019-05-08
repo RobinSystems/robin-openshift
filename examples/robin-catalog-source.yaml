@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: robin-operators
+  namespace: robinio
+spec:
+  displayName: Robin Operators
+  publisher: Robin.io
+  sourceType: configmap
+  configMap: robin-operators
