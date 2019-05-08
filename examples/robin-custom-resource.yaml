@@ -1,0 +1,11 @@
+apiVersion: robin.io/v1alpha1
+kind: RobinCluster
+metadata:
+  name: example
+  namespace: robinio
+spec:
+  host_type: physical
+  image_robin: robinsys/robinimg:5.1.1-8478
+  k8s_provider: openshift
+  node_selector: node-role.kubernetes.io/compute=true
+  source: operatorhub

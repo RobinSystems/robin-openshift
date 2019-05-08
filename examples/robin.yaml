@@ -1,0 +1,247 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    domain: ROBIN
+  name: robinio
+
+---
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: robinclusters.robin.io
+spec:
+  group: robin.io
+  names:
+    kind: RobinCluster
+    listKind: RobinClusterList
+    plural: robinclusters
+    singular: robincluster
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          type: object
+          properties:
+            host_type:
+              type: string
+            image_version:
+              type: string
+            image_robin:
+              type: string
+            k8s_provider:
+              type: string
+            node_selector:
+              type: string
+        status:
+          type: object
+          properties:
+            get_robin_client:
+              type: string
+            master_ip:
+              type: string
+            phase:
+              type: string
+            pod_status:
+              type: array
+            robin_node_status:
+              type: array
+            connect_command:
+              type: string
+  version: v1alpha1
+  additionalPrinterColumns:
+  - name: Phase
+    type: string
+    description: State of the robin cluster
+    JSONPath: .status.phase
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: robin-operator
+  namespace: robinio
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  - serviceaccounts
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - robin.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+
+---
+
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: robin-operator
+  namespace: robinio
+subjects:
+- kind: ServiceAccount
+  name: robin-operator
+  namespace: robinio
+roleRef:
+  kind: Role
+  name: robin-operator
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: robin-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - list
+  - get
+  - watch
+- apiGroups:
+  - "rbac.authorization.k8s.io"
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - "storage.k8s.io"
+  resources:
+  - storageclasses
+  verbs:
+  - '*'
+
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: robin-operator
+roleRef:
+  # This is added to create CSI cluster role
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: robin-operator
+  namespace: robinio
+
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: robin-operator
+  namespace: robinio
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: robin-operator
+  namespace: robinio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: robin-operator
+  template:
+    metadata:
+      labels:
+        name: robin-operator
+    spec:
+      serviceAccountName: robin-operator
+      containers:
+        - name: robin-operator
+          # Replace this with the built image name
+          image: robinsys/robin-operator:5.1.1
+          command:
+          - robin-operator
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "robin-operator"
+
+---
+
+apiVersion: robin.io/v1alpha1
+kind: RobinCluster
+metadata:
+  name: robin
+  namespace: robinio
+spec:
+  image_robin: robinsys/robinimg:5.1.1
+  image_provisioner: robinsys/csi-provisioner:v1.0.0_robin
+  k8s_provider: openshift
+  host_type: physical
+  node_selector: node-role.kubernetes.io/compute=true
+  # kms: robin/google
+  # kms_keyring: <keyring_name>
+  # options:
+  #   app_id: <AKS_APP_ID>
+  #   secret_key: <AKS_SECREY_KEY>
+  #   tenant_id: <AKS_TENANT_ID>
+
+---
