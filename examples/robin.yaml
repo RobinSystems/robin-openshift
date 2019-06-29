@@ -233,7 +233,7 @@ metadata:
   namespace: robinio
 spec:
   image_robin: robinsys/robin-storage:5.1.1
-  image_provisioner: robinsys/csi-provisioner:v1.0.0_robin
+  image_provisioner: robinsys/csi-provisioner:v0.4.1_robin
   k8s_provider: openshift
   host_type: physical
   node_selector: node-role.kubernetes.io/compute=true
